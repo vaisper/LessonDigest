@@ -1,0 +1,27 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.idea/
+.vscode/
+
+# реальные уроки — не в git
+audio/raw/*
+audio/normalized/*
+transcripts/*
+digests/*
+runs/*
+!audio/raw/.gitkeep
+!audio/normalized/.gitkeep
+!transcripts/.gitkeep
+!digests/.gitkeep
+!digests/_eval/.gitkeep
+!runs/.gitkeep
+
+# модели whisper могут качаться локально
+models/
+*.bin
+*.pt
