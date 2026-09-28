@@ -72,12 +72,22 @@ RUN_ID = {date}_{subject}_{short_hash}
 
 Оценка токенов (грубо для русского): `chars / 2` … `chars / 3` — калибровать эмпирически.
 
+### Stage 3b — Analytic (своя аналитика, TF-IDF + TextRank)
+
+**Вход:** транскрипт.  
+**Выход:** `transcripts/{RUN_ID}.analytic.json` + `digests/{RUN_ID}.analytic.md`.
+
+Без нейросетей: TF-IDF даёт ключевые термины, TextRank — ключевые предложения,
+regex — кандидатов домашки. Включается флагом `analytic.enabled`. После суммаризации
+в `metrics.json` дописывается секция `analytic_compare` (сравнение с дайджестом LLM).
+Подробно — `14_ANALYTIC.md`, результаты — `15_ANALYTIC_RESULTS.md`.
+
 ### Stage 4 — Summarize (LLM)
 
 **Вход:** текст или список чанков.  
 **Выход:**
 - `digests/{RUN_ID}.md` — человекочитаемый дайджест;
-- `digests/{RUN_ID}.json` — структурированные поля (для метрик/ботов);
+- `digests/{RUN_ID}.json` — структурированные поля (для метрик и интерфейсов);
 - meta: model, prompt_version, tokens_in/out, elapsed.
 
 Режимы:
@@ -101,9 +111,9 @@ RUN_ID = {date}_{subject}_{short_hash}
 
 ### Stage 6 — Deliver
 
-MVP0: путь к `.md` в консоли + открыть папку.  
-MVP1: отправить в Telegram.  
-Позже: PDF export, Notion, и т.д.
+CLI: путь к `.md` в консоли (флаг `--open` открывает файл).  
+Веб: страница показывает дайджест и ссылки «Скачать .md / транскрипт» (сделано, ADR-0007).  
+Позже: PDF export, Notion и т.д.
 
 ### Stage 7 — Metrics hook
 
@@ -138,7 +148,9 @@ created → ingesting → asr_running → asr_done → summarizing → digest_re
                  ↘ failed_* (с указанием stage)
 ```
 
-Хранить `status` в `runs/{RUN_ID}/run.json`.
+Хранить `status` в `runs/{RUN_ID}/run.json`. Там же — `progress` (0..1) и
+`progress_stage`; по ним веб-интерфейс рисует полосу прогресса в процентах.
+Этап `analytic` выполняется после ASR, если включён в конфиге.
 
 ## 5. Политика повторных запусков
 
@@ -152,4 +164,4 @@ created → ingesting → asr_running → asr_done → summarizing → digest_re
 ## 6. Параллелизм
 
 MVP0: строго последовательно, один run за раз.  
-Позже: очередь задач для бота (один worker), чтобы не убить RAM двумя Whisper сразу.
+Реализовано: очередь с одним worker-потоком в веб-слое, чтобы не запускать два Whisper сразу.

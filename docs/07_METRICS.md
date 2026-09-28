@@ -30,6 +30,8 @@
 | Homework F1 | precision/recall маркеров домашки | разметка |
 | Сравнение LLM | GigaChat vs YandexGPT | один и тот же transcript |
 | Своя математика vs LLM | TextRank vs LLM key points | qualitative + overlap |
+| Термины/предложения F1 | сравнение своей аналитики с LLM | `lessondigest analyze --compare`, `docs/15` |
+| Grounded ratio | доля чисел домашки/формул, подтверждённых транскриптом | `docs/15` |
 
 ## 4. План эксперимента MVP0
 

@@ -5,13 +5,15 @@
 | Слой | Выбор | Почему |
 |------|-------|--------|
 | Язык | Python 3.11+ | Экосистема ASR/LLM, быстро для MVP |
-| CLI | `argparse` или `typer` | Простота |
+| CLI | `argparse` (реализовано) | Простота |
 | ASR | **faster-whisper** (local) | Бесплатно, РФ ok, хороший русский |
 | LLM | **GigaChat API** | Из РФ без VPN, freemium, русский |
 | Аудио utils | `ffmpeg` / `ffprobe` | Метаданные и конвертация |
+| Веб | FastAPI + Uvicorn, `python-multipart`, `markdown` | Загрузка файла, фоновая очередь, рендер дайджеста |
+| Аналитика | scikit-learn, razdel, pymorphy3, networkx | Свои TF-IDF / TextRank / детектор домашки |
 | Конфиг | YAML + `.env` | Стандарт |
 | Логи | stdlib `logging` | Достаточно |
-| Тесты | `pytest` | Позже |
+| Тесты | `unittest` (36 тестов) | Без лишних зависимостей |
 
 Fallback LLM: **YandexGPT** (OpenAI-compatible endpoint удобен).  
 Fallback ASR: **Yandex SpeechKit** или **Vosk** (если Whisper тяжёлый для железа).
@@ -29,7 +31,7 @@ Fallback ASR: **Yandex SpeechKit** или **Vosk** (если Whisper тяжёл�
 
 ### Обработка MVP1+
 - Тот же ноутбук **или** недорогой VPS (оплата картой РФ: Aeza / Timeweb EU).  
-- Бот должен иметь исходящий HTTPS до GigaChat / Telegram.
+- Нужен исходящий HTTPS до GigaChat; для доступа извне — логин и HTTPS (пока нет).
 
 ## 3. Сравнение LLM (доступ из РФ)
 
@@ -52,11 +54,12 @@ Fallback ASR: **Yandex SpeechKit** или **Vosk** (если Whisper тяжёл�
 
 **Primary MVP0: faster-whisper `small`, language=`ru`.**
 
-## 5. Telegram (фаза MVP1)
+## 5. Веб-интерфейс (реализован, ADR-0007)
 
-- Библиотека: `python-telegram-bot` (v20+ async) или aiogram.  
-- Хранение: файлы + позже SQLite.  
-- Длинные уроки: принимать как **document**, не voice.
+- Библиотеки: FastAPI + Uvicorn, `python-multipart` (приём файла), `markdown` (рендер дайджеста).  
+- Обработка в фоне: очередь с одним worker-потоком (два Whisper одновременно не запускаем).  
+- Запуск: `lessondigest serve` (localhost; `--host 0.0.0.0` — доступ с телефона по Wi-Fi).  
+- Telegram-бот отменён (ADR-0007).
 
 ## 6. Что ставить на машину (чеклист)
 
@@ -69,15 +72,26 @@ Fallback ASR: **Yandex SpeechKit** или **Vosk** (если Whisper тяжёл�
 ## 7. Зависимости Python (черновик `requirements.txt`)
 
 ```text
-faster-whisper
+# ядро
+faster-whisper        # ASR (extra: asr)
 python-dotenv
 pyyaml
 httpx
 pydantic
-# later:
-# python-telegram-bot
-# pytest
+# веб (extra: web)
+fastapi
+uvicorn
+python-multipart
+markdown
+# аналитика (extra: analytic)
+scikit-learn
+razdel
+pymorphy3
+pymorphy3-dicts-ru
+networkx
 ```
+
+Установка всех extras: `pip install -e ".[asr,web,analytic]"`.
 
 Точные версии зафиксировать при первой рабочей сборке.
 

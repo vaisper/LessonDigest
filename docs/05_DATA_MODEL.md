@@ -3,7 +3,7 @@
 ## 1. Принцип MVP0
 
 **Source of truth = файловая система.**  
-База данных не обязательна, пока нет бота с историей многих пользователей.
+База данных не обязательна, пока нет многопользовательского сервиса с историей.
 
 Позже: SQLite как **индекс** поверх файлов (не замена артефактов).
 
@@ -18,6 +18,7 @@
 | created_at | iso8601 | |
 | subject | string? | алгебра, физика… |
 | status | enum | см. pipeline |
+| progress / progress_stage | float? / string? | прогресс этапа для веб-интерфейса |
 | source_original_name | string | |
 | checksum_sha256 | string | |
 | duration_sec | float | |
@@ -63,6 +64,18 @@
 | notes | string |
 | evaluator | string |
 
+### Analytic (своя аналитика, без нейросетей)
+| Поле | Тип |
+|------|-----|
+| run_id | string |
+| key_terms | string[] (TF-IDF) |
+| key_sentences | string[] (TextRank, дословные) |
+| homework_candidates | string[] |
+| homework_confidence | string (high/medium/low/absent) |
+| method | string |
+| elapsed_sec | float |
+| stats | object |
+
 ## 3. Именование файлов
 
 ```text
@@ -86,8 +99,11 @@
   "transcript": "transcripts/20260923_algebra_a1b2c3.txt",
   "digest_md": "digests/20260923_algebra_a1b2c3.md",
   "digest_json": "digests/20260923_algebra_a1b2c3.json",
-  "prompt_version": "v1",
-  "timings": {"asr_sec": 312.5, "llm_sec": 18.2}
+  "analytic_json": "transcripts/20260923_algebra_a1b2c3.analytic.json",
+  "prompt_version": "v1_1",
+  "progress": 1.0,
+  "progress_stage": "deliver",
+  "timings": {"ingest": 0.1, "asr": 94.5, "summarize": 8.6, "deliver": 0.0}
 }
 ```
 
@@ -95,6 +111,7 @@
 
 ```text
 Run 1──1 Transcript
+Run 1──1 Analytic
 Run 1──1 Digest
 Run 1──0..* HumanEvaluation
 Run 1──0..* Chunk (если chunking)
@@ -102,5 +119,5 @@ Run 1──0..* Chunk (если chunking)
 
 ## 6. Будущий SQLite (MVP1+)
 
-Таблицы: `runs`, `evaluations`, `users` (telegram_id), `files`.  
+Таблицы: `runs`, `evaluations`, `users` (веб-пользователь), `files`.  
 Файлы по-прежнему на диске; в БД — пути и индексы поиска по subject/date.

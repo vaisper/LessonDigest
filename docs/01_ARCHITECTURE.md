@@ -13,7 +13,7 @@ Source (audio) → Transform (ASR) → Transform (Summarize) → Sink (file / bo
 1. **Слои с чёткими контрактами** — каждый этап читает вход и пишет выход, не зная деталей соседа.  
 2. **Файлы как первичный transport в MVP0** — простота отладки, прозрачность для защиты.  
 3. **API LLM/ASR — адаптеры** — смена GigaChat ↔ YandexGPT не ломает пайплайн.  
-4. **Сначала доказать ценность, потом UX** — ноутбук → Telegram → PWA.  
+4. **Сначала доказать ценность, потом UX** — ноутбук (CLI) → веб → PWA.  
 5. **Локальные артефакты** — каждое состояние сохраняется на диск (`audio/`, `transcripts/`, `digests/`).
 
 ## 2. Логическая схема (все версии)
@@ -27,7 +27,7 @@ Source (audio) → Transform (ASR) → Transform (Summarize) → Sink (file / bo
 │  └──────────┘   └──────────┘   └────────────┘   └────────────┘ │
 │       │              │                │                │         │
 │       ▼              ▼                ▼                ▼         │
-│   audio/*      transcripts/*     digests/*      Telegram/файл   │
+│   audio/*      transcripts/*     digests/*      Веб/файл         │
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │ Config / Secrets / Prompts / Logging / Metrics              │ │
@@ -47,18 +47,19 @@ Source (audio) → Transform (ASR) → Transform (Summarize) → Sink (file / bo
 
 | Код | Где крутится логика | UX | Для какой фазы |
 |-----|---------------------|-----|----------------|
-| **B** | Ноутбук (Python CLI) | Перекинул файл → получил `.md` | **MVP0 (рекомендуется)** |
-| **C** | Ноутбук/VPS + Telegram-бот | Кинул аудио в бота → дайджест в чат | MVP1 |
+| **B** | Ноутбук (Python CLI) | Перекинул файл → получил `.md` | **MVP0** |
+| **C** | Ноутбук + веб-интерфейс (FastAPI) | Загрузил файл в браузере → дайджест на странице | **Сделано (ADR-0007)** |
 | **A** | Всё на телефоне (Termux + local LLM) | Офлайн | Поздняя «приватная» версия |
-| **D** | VPS 24/7 | Бот всегда онлайн | После школьного MVP |
+| **D** | VPS 24/7 | Сервис всегда онлайн | После школьного MVP |
 
-**Зафиксировано для старта: топология B**, с заделом интерфейсов под C.
+**Зафиксировано: топология B реализована (CLI), топология C (веб) — тоже (ADR-0007).
+Telegram-бот отменён.**
 
 ## 4. Физическая схема MVP0 (топология B)
 
 ```text
 [Android/iPhone Dictaphone]
-        │ USB / Telegram «Избранное» / облако
+        │ USB / облако / «Избранное» в мессенджере
         ▼
 [D:\LessonDigest\audio\lesson_YYYYMMDD_subject.m4a]
         │
@@ -74,22 +75,24 @@ Source (audio) → Transform (ASR) → Transform (Summarize) → Sink (file / bo
         └─► stdout / открыть .md
 ```
 
-## 5. Физическая схема MVP1 (топология C — гибрид)
+## 5. Физическая схема MVP1 (топология C — веб, реализовано)
 
 ```text
-[Телефон] --audio--> [Telegram]
-                         │
-                         ▼
-              [Bot process на ноутбуке/VPS]
-                         │
-              Ingest ← message.audio / document
-                         │
-                    тот же Pipeline
-                         │
-              Deliver → reply markdown / файл .md
+[Телефон] --audio--> [Браузер] --HTTP--> [FastAPI на ноутбуке]
+                                             │
+                                   POST /api/runs (файл)
+                                             │
+                                   очередь (1 worker)
+                                             │
+                                        тот же Pipeline
+                                             │
+                                   GET /api/runs/{id}  → статус/прогресс
+                                   GET .../digest      → дайджест
 ```
 
-Ограничения Telegram: размер/длительность voice; для длинных уроков — отправка как **document** (файл), не voice note.
+Веб-страница (см. `web/page.py`) показывает форму загрузки, прогресс в процентах
+и готовый дайджест. Обработка идёт в фоне, вкладку можно закрывать.
+Ограничение: авторизации нет — только localhost или своя Wi-Fi-сеть.
 
 ## 6. C4 — Context
 
@@ -103,10 +106,10 @@ Source (audio) → Transform (ASR) → Transform (Summarize) → Sink (file / bo
            ┌───────►│ LessonDigest │◄────────┐
            │        └──────┬───────┘         │
            │               │                 │
-     ┌─────┴─────┐   ┌─────▼──────┐   ┌──────┴──────┐
-     │ ASR provider│   │ LLM provider│   │ (опц.) TG  │
-     │ Whisper/Ya  │   │ GigaChat    │   │ Bot API    │
-     └───────────┘   └────────────┘   └─────────────┘
+     ┌─────┴──────┐   ┌─────▼───────┐   ┌──────┴──────┐
+     │ ASR provider│   │ LLM provider│   │  Web UI     │
+     │ Whisper/Ya  │   │ GigaChat    │   │ FastAPI     │
+     └────────────┘   └─────────────┘   └─────────────┘
 ```
 
 ## 7. C4 — Containers (логические контейнеры)
@@ -117,7 +120,8 @@ Source (audio) → Transform (ASR) → Transform (Summarize) → Sink (file / bo
 | ASR Adapter | Whisper local / SpeechKit | Аудио → текст |
 | LLM Adapter | GigaChat (YandexGPT fallback) | Текст → дайджест |
 | Store | Файловая система (+ SQLite позже) | Артефакты и метаданные |
-| Bot (позже) | python-telegram-bot | UX доставки |
+| Web UI | FastAPI + HTML | Загрузка, прогресс, просмотр дайджеста |
+| Analytic | TF-IDF + TextRank (scikit-learn, networkx) | Свои ключевые термины и предложения, детектор домашки |
 | Config | `.env` + YAML | Ключи, пути, модели |
 
 ## 8. Границы доверия (trust boundaries)
@@ -138,7 +142,7 @@ Source (audio) → Transform (ASR) → Transform (Summarize) → Sink (file / bo
 | NFR | MVP0 | Цель позже |
 |-----|------|------------|
 | Время обработки 15 мин урока | ≤ 10–15 мин wall-clock на CPU-ноуте | ≤ 3–5 мин |
-| Доступность | Ручной запуск | Бот online |
+| Доступность | Ручной запуск | Веб-сервис online |
 | Приватность | Явное согласие; учёт куда уходит аудио | Опция fully-local |
 | Стоимость | В рамках freemium GigaChat + local ASR | Бюджет известен |
 | Воспроизводимость | Одинаковый промпт + сохранённые артефакты | Версии промптов |

@@ -9,9 +9,11 @@ lessondigest/
   ingest         — приём и нормализация аудио
   asr            — интерфейс + адаптеры провайдеров
   chunking       — нарезка транскрипта
+  analytic       — своя аналитика: TF-IDF, TextRank, домашка, метрики
   summarize      — интерфейс + адаптеры LLM
-  deliver        — файл / telegram
-  domain         — модели данных (Run, Digest, Transcript)
+  deliver        — файл
+  web            — FastAPI: очередь задач, API, страница
+  domain         — модели данных (Run, Digest, Transcript, Analytic)
   storage        — работа с FS (+ позже SQLite)
   logging        — единый логгер
   metrics        — запись таймингов и оценок
@@ -38,13 +40,13 @@ class Deliverer(Protocol):
 |------|--------------|---------------|
 | AsrProvider | `FasterWhisperAsr` | `YandexSpeechKitAsr`, `VoskAsr` |
 | LlmProvider | `GigaChatLlm` | `YandexGptLlm`, `LocalGgufLlm` |
-| Deliverer | `FileDeliverer` | `TelegramDeliverer` |
+| Deliverer | `FileDeliverer` | — (показ реализован в веб-слое, ADR-0007) |
 | Storage | `FilesystemStorage` | `SqliteIndex` |
 
 ## 3. Компонент `cli`
 
 Ответственность:
-- парсинг аргументов (`run`, `asr-only`, `summarize-only`, `doctor`);
+- парсинг аргументов (`run`, `doctor`, `list`, `eval`, `analyze`, `serve`);
 - сборка графа зависимостей (DI вручную);
 - код возврата: 0 ok, 2 validation, 3 asr fail, 4 llm fail.
 
@@ -70,14 +72,14 @@ python -m lessondigest run --audio ... --from summarize --force
 GIGACHAT_CLIENT_ID=...
 GIGACHAT_CLIENT_SECRET=...
 YANDEX_API_KEY=...          # optional
-TELEGRAM_BOT_TOKEN=...      # later
+# WEB_TOKEN=...              # план: авторизация веб-интерфейса
 ```
 
 `config.yaml` — несекретное:
 
 ```yaml
 paths:
-  root: "D:/LessonDigest"
+  root: "."                  # корень проекта относительно config.yaml
 asr:
   provider: faster_whisper
   model: small
@@ -86,10 +88,15 @@ asr:
 llm:
   provider: gigachat
   model: GigaChat-2-Pro
-  prompt_version: v1
+  prompt_version: v1_1
+  ca_bundle: "certs/russian_trusted_ca_bundle.pem"
 chunking:
   enabled: true
   soft_char_limit: 24000
+analytic:
+  enabled: true
+  top_terms: 12
+  top_sentences: 7
 ```
 
 ## 5. Компонент `ingest`
@@ -155,8 +162,10 @@ LLM должна по возможности вернуть **и** markdown дл
 
 ```text
 FileDeliverer → digests/{run_id}.md
-TelegramDeliverer → message + optional document
 ```
+
+Показ результата в браузере реализован не как Deliverer, а отдельным слоем `web/`
+(страница читает артефакты и метаданные прогона). Telegram-доставка отменена (ADR-0007).
 
 ## 10. Компонент `storage`
 
@@ -178,16 +187,20 @@ cli → config
 cli → ingest → storage
 cli → asr → storage
 cli → chunking
+cli → analytic → storage
 cli → summarize → storage
 cli → deliver
 cli → metrics
+cli → web (serve) → storage
 ```
 
-Запрещено: `asr` импортирует `summarize`; `gigachat` импортирует `telegram`.
+Запрещено: `asr` импортирует `summarize`; `summarize` импортирует `web`.
 
 ## 12. Точки расширения (extension points)
 
 1. Новый ASR = новый adapter + строка в config.  
 2. Новый LLM = новый adapter.  
 3. Новый канал доставки = новый Deliverer.  
-4. Новая «своя математика» = модуль `analytic/` между ASR и Summarize или parallel path для сравнения.
+4. «Своя математика» — **реализована**: модуль `analytic/` (TF-IDF + TextRank),
+   см. `14_ANALYTIC.md` и `15_ANALYTIC_RESULTS.md`.  
+5. Новый интерфейс загрузки — слой `web/` (FastAPI + очередь), см. ADR-0007.
