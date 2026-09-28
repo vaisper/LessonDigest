@@ -11,3 +11,4 @@
 | 0005 | Файлы — source of truth в MVP0 | Accepted |
 | 0006 | Не разрабатываем собственную ASR | Accepted |
 | 0007 | Веб-интерфейс вместо Telegram-бота | Accepted |
+| 0008 | Своя текстовая аналитика (TF-IDF + TextRank) | Accepted |

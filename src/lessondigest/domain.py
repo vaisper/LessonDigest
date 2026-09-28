@@ -96,6 +96,19 @@ class HumanEvaluation(BaseModel):
     evaluator: str = ""
 
 
+class AnalyticResult(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    run_id: str = ""
+    key_terms: list[str] = Field(default_factory=list)
+    key_sentences: list[str] = Field(default_factory=list)
+    homework_candidates: list[str] = Field(default_factory=list)
+    homework_confidence: str = "absent"
+    method: str = "tfidf+textrank"
+    elapsed_sec: float = 0.0
+    stats: dict[str, float] = Field(default_factory=dict)
+
+
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
@@ -121,6 +134,7 @@ class RunMeta(BaseModel):
     transcript_txt: str | None = None
     transcript_segments: str | None = None
     chunks_json: str | None = None
+    analytic_json: str | None = None
     digest_md: str | None = None
     digest_json: str | None = None
 

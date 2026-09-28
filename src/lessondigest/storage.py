@@ -6,6 +6,7 @@ from typing import Any
 
 from lessondigest.config import ProjectPaths
 from lessondigest.domain import (
+    AnalyticResult,
     ChunkingResult,
     Digest,
     HumanEvaluation,
@@ -75,6 +76,12 @@ class FilesystemStorage:
     def chunks_path(self, run_id: str) -> Path:
         return self.paths.transcripts / f"{run_id}.chunks.json"
 
+    def analytic_json_path(self, run_id: str) -> Path:
+        return self.paths.transcripts / f"{run_id}.analytic.json"
+
+    def analytic_md_path(self, run_id: str) -> Path:
+        return self.paths.digests / f"{run_id}.analytic.md"
+
     def digest_md_path(self, run_id: str) -> Path:
         return self.paths.digests / f"{run_id}.md"
 
@@ -118,6 +125,21 @@ class FilesystemStorage:
         if not path.exists():
             return None
         return ChunkingResult.model_validate(read_json(path))
+
+    def save_analytic(self, run_id: str, result: AnalyticResult, raw_markdown: str) -> tuple[Path, Path]:
+        json_path = self.analytic_json_path(run_id)
+        write_json(json_path, result.model_dump(mode="json"))
+        md_path = self.analytic_md_path(run_id)
+        _atomic_write_text(md_path, raw_markdown.strip() + "\n")
+        return json_path, md_path
+
+    def load_analytic(self, run_id: str) -> AnalyticResult:
+        from lessondigest.errors import MissingArtifactError
+
+        path = self.analytic_json_path(run_id)
+        if not path.exists():
+            raise MissingArtifactError(f"Аналитика не найдена: {path}", stage="analytic")
+        return AnalyticResult.model_validate(read_json(path))
 
     def save_digest(self, run_id: str, digest: Digest, raw_markdown: str) -> tuple[Path, Path]:
         json_path = self.digest_json_path(run_id)

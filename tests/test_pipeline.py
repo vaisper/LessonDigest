@@ -77,6 +77,7 @@ class PipelineTest(unittest.TestCase):
         self.assertTrue((self.config.paths.audio_raw / Path(meta.audio_raw).name).exists())
         self.assertTrue(self.storage.metrics_path(result.run_id).exists())
         self.assertTrue(self.storage.digest_json_path(result.run_id).exists())
+        self.assertTrue(self.storage.analytic_json_path(result.run_id).exists())
 
     def test_rerun_skips_stages(self) -> None:
         first = self._pipeline().run(audio=self.audio, subject="algebra")

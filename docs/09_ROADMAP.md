@@ -24,18 +24,18 @@
 
 ## Версия 2 — Своя математика (научная часть)
 
-Параллельный контур:
+**Сделано** (см. `docs/14_ANALYTIC.md`, ADR-0008):
 
 ```text
-transcript → TF-IDF / TextRank / clustering → candidate key points
-                │
-                ▼
-         сравнение с LLM digest
+transcript → TF-IDF (ключевые термины) + TextRank (ключевые предложения)
+           + regex-детектор домашки
+                 │
+                 ▼
+         сравнение с LLM digest (precision/recall/F1, grounded_ratio)
 ```
 
-Это отвечает на риск «это просто обёртка над нейросетью»: есть **свой алгоритм** и сравнение.
-
-Метрики: overlap key points, homework detection F1, экспертная оценка.
+Отвечает на риск «это просто обёртка над нейросетью»: есть **свой алгоритм** и сравнение.
+Результаты — в `docs/15_ANALYTIC_RESULTS.md`.
 
 ## Версия 3 — Удобство записи
 

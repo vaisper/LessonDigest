@@ -12,5 +12,12 @@ httpx>=0.27
 # python-multipart>=0.0.9
 # markdown>=3.5
 
+# analytic (optional). Own keyword extraction (TF-IDF + TextRank)
+# scikit-learn>=1.4
+# razdel>=0.5
+# pymorphy3>=2.0
+# pymorphy3-dicts-ru
+# networkx>=3.2
+
 # dev
 # pytest>=8.0

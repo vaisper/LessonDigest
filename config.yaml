@@ -26,3 +26,10 @@ chunking:
   soft_char_limit: 24000
   overlap_chars: 200
   chars_per_token: 2.5
+
+analytic:
+  enabled: true
+  top_terms: 12
+  top_sentences: 7
+  min_sentence_chars: 40
+  ngram_max: 2

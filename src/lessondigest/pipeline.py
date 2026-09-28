@@ -139,6 +139,34 @@ class Pipeline:
 
             self._save_meta(meta)
 
+            if self.config.analytic.enabled:
+                analytic_path = self.storage.analytic_json_path(run_id)
+                if force or not analytic_path.exists():
+                    try:
+                        from lessondigest.analytic import analyze, render_analytic_md
+
+                        transcript_for_analytic = self.storage.load_transcript(run_id)
+                        with metrics.time("analytic"):
+                            analytic = analyze(
+                                transcript_for_analytic.text,
+                                self.config.analytic,
+                                run_id=run_id,
+                            )
+                        json_path, _ = self.storage.save_analytic(
+                            run_id, analytic, render_analytic_md(analytic)
+                        )
+                        meta.analytic_json = self.storage.relative(json_path)
+                    except ImportError:
+                        log.warning(
+                            "Аналитика пропущена: нет зависимостей "
+                            "(pip install 'lessondigest[analytic]')"
+                        )
+                    except LessonDigestError as exc:
+                        log.warning("Аналитика не построена: %s", exc)
+                else:
+                    skipped.append("analytic")
+                self._save_meta(meta)
+
             if self._should_run("summarize", start_index, force, artifact=self.storage.digest_json_path(run_id)):
                 transcript = self.storage.load_transcript(run_id)
                 chunking = chunk_transcript(transcript.text, transcript.segments, self.config.chunking)
@@ -189,6 +217,21 @@ class Pipeline:
                     skipped.append("deliver")
             else:
                 skipped.append("deliver")
+
+            if self.config.analytic.enabled:
+                try:
+                    from lessondigest.analytic import compare_digest
+
+                    analytic_result = self.storage.load_analytic(run_id)
+                    digest_for_compare = self.storage.load_digest(run_id)
+                    transcript_for_compare = self.storage.load_transcript(run_id)
+                    comparison = compare_digest(
+                        analytic_result, digest_for_compare, transcript_for_compare.text
+                    )
+                    for key, value in comparison.items():
+                        metrics.set(f"analytic_{key}", value)
+                except (ImportError, LessonDigestError):
+                    pass
 
             metrics.set("audio_duration_sec", meta.duration_sec)
             meta.timings = dict(metrics.timings)

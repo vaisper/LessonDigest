@@ -91,6 +91,16 @@ class ChunkingConfig(BaseModel):
     chars_per_token: float = 2.5
 
 
+class AnalyticConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    enabled: bool = True
+    top_terms: int = 12
+    top_sentences: int = 7
+    min_sentence_chars: int = 40
+    ngram_max: int = 2
+
+
 class Secrets(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -134,6 +144,7 @@ class AppConfig(BaseModel):
     asr: AsrConfig = Field(default_factory=AsrConfig)
     llm: LlmConfig = Field(default_factory=LlmConfig)
     chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
+    analytic: AnalyticConfig = Field(default_factory=AnalyticConfig)
     secrets: Secrets = Field(default_factory=Secrets)
 
     @classmethod
@@ -173,6 +184,7 @@ class AppConfig(BaseModel):
             asr=AsrConfig.model_validate(raw.get("asr") or {}),
             llm=llm,
             chunking=ChunkingConfig.model_validate(raw.get("chunking") or {}),
+            analytic=AnalyticConfig.model_validate(raw.get("analytic") or {}),
             secrets=secrets,
         )
 

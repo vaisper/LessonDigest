@@ -40,6 +40,7 @@
 - Проверяет результат (есть ли тема/тезисы/домашка, не выдумана ли домашка).
 - Считает метрики времени на каждый этап.
 - Отдаёт всё через веб-страницу: загрузка файла, **прогресс обработки в процентах**, просмотр и скачивание дайджеста.
+- Имеет **свою аналитику текста** (TF-IDF + TextRank, без нейросетей) и метрики сравнения с LLM.
 
 ## Как это работает
 
@@ -95,7 +96,7 @@ python -m venv .venv
 Рекомендуемый способ — установить проект с нужными дополнениями (`asr` и `web`):
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install -e ".[asr,web]"
+.\.venv\Scripts\python.exe -m pip install -e ".[asr,web,analytic]"
 ```
 
 Альтернатива, если editable-установка не нужна:
@@ -103,6 +104,7 @@ python -m venv .venv
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m pip install faster-whisper fastapi uvicorn python-multipart markdown
+.\.venv\Scripts\python.exe -m pip install scikit-learn razdel pymorphy3 pymorphy3-dicts-ru networkx
 ```
 
 После этого доступна команда `lessondigest` (`.\.venv\Scripts\lessondigest.exe`).
@@ -208,6 +210,11 @@ llm:
 chunking:
   enabled: true
   soft_char_limit: 24000     # больше — включается map-reduce
+
+analytic:                     # своя аналитика текста
+  enabled: true
+  top_terms: 12
+  top_sentences: 7
 ```
 
 ## Использование: веб-интерфейс
@@ -268,6 +275,9 @@ ipconfig          # найди «IPv4-адрес», например 192.168.1.4
 
 # оценить дайджест вручную (для метрик эксперимента)
 .\.venv\Scripts\lessondigest.exe eval --run 20260923_algebra_a1b2c3 --usefulness 4 --homework yes
+
+# своя аналитика транскрипта (TF-IDF + TextRank) и сравнение с GigaChat
+.\.venv\Scripts\lessondigest.exe analyze --run 20260923_algebra_a1b2c3 --compare
 ```
 
 Основные команды `run`:
@@ -386,6 +396,7 @@ src/lessondigest/
 ├── metrics.py        тайминги и счётчики
 ├── asr/              адаптеры распознавания (faster-whisper, fake)
 ├── summarize/        адаптеры LLM (GigaChat, fake), разбор и рендер
+├── analytic/         своя аналитика: TF-IDF, TextRank, детектор домашки, метрики сравнения
 ├── deliver/          выдача результата (файл)
 └── web/              FastAPI: очередь задач, API и страница
 ```
@@ -411,6 +422,8 @@ src/lessondigest/
 | 13 | [docs/12_DEFENSE.md](docs/12_DEFENSE.md) | Защита школьного проекта |
 | 14 | [docs/13_RISKS.md](docs/13_RISKS.md) | Риски и митигации |
 | 15 | [docs/adr/](docs/adr/) | Архитектурные решения (ADR) |
+| 16 | [docs/14_ANALYTIC.md](docs/14_ANALYTIC.md) | Своя аналитика текста (TF-IDF + TextRank) |
+| 17 | [docs/15_ANALYTIC_RESULTS.md](docs/15_ANALYTIC_RESULTS.md) | Результаты сравнения с GigaChat |
 
 ## Статус и план
 
@@ -422,5 +435,5 @@ src/lessondigest/
 - [ ] 5–10 прогонов на **реальных** записях урока с телефона (шум, живая речь) — риски R1/R2
 - [ ] Оценки полезности (1–5) и верности домашки → `digests/_eval/summary.md` (`docs/07_METRICS.md`)
 - [x] `prompt v1.1`: единый формат формул (без LaTeX), стандартные обозначения; нормализатор формул в коде
-- [ ] Своя математика (TF-IDF / TextRank) — научная часть
+- [x] Своя математика (TF-IDF + TextRank): аналитика текста, детектор домашки, метрики сравнения (`docs/14`, `docs/15`)
 - [ ] Авторизация веб-интерфейса и HTTPS для доступа не из своей сети

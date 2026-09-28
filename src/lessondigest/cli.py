@@ -10,7 +10,7 @@ from lessondigest.domain import HumanEvaluation
 from lessondigest.errors import ConfigError, LessonDigestError
 from lessondigest.logging_setup import get_logger, setup_logging
 from lessondigest.pipeline import STAGES, Pipeline
-from lessondigest.storage import FilesystemStorage
+from lessondigest.storage import FilesystemStorage, read_json
 from lessondigest import media
 
 log = get_logger("cli")
@@ -42,6 +42,12 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("doctor", help="Проверить окружение и конфиг")
 
     sub.add_parser("list", help="Список прогонов")
+
+    analyze = sub.add_parser("analyze", help="Своя аналитика транскрипта (TF-IDF + TextRank)")
+    analyze.add_argument("--run", dest="run_id", required=True)
+    analyze.add_argument("--compare", action="store_true", help="Сравнить с дайджестом GigaChat")
+    analyze.add_argument("--top-terms", type=int, default=None)
+    analyze.add_argument("--top-sentences", type=int, default=None)
 
     serve = sub.add_parser("serve", help="Запустить веб-интерфейс")
     serve.add_argument("--host", default="127.0.0.1", help="0.0.0.0 — доступ с телефона по Wi-Fi")
@@ -79,6 +85,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_run(config, args)
         if args.command == "serve":
             return _cmd_serve(config, args)
+        if args.command == "analyze":
+            return _cmd_analyze(config, args)
         if args.command == "eval":
             return _cmd_eval(config, args)
     except LessonDigestError as exc:
@@ -149,6 +157,59 @@ def _cmd_serve(config: AppConfig, args: argparse.Namespace) -> int:
     if args.host not in {"127.0.0.1", "localhost"}:
         log.warning("Веб-интерфейс без авторизации доступен в сети по адресу %s:%s", args.host, args.port)
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    return 0
+
+
+def _cmd_analyze(config: AppConfig, args: argparse.Namespace) -> int:
+    from lessondigest.analytic import analyze, compare_digest, render_analytic_md
+    from lessondigest.errors import MissingArtifactError
+
+    storage = FilesystemStorage(config.paths)
+    run_id = args.run_id
+    transcript = storage.load_transcript(run_id)
+
+    analytic_config = config.analytic.model_copy(
+        update={
+            "top_terms": args.top_terms or config.analytic.top_terms,
+            "top_sentences": args.top_sentences or config.analytic.top_sentences,
+        }
+    )
+    result = analyze(transcript.text, analytic_config, run_id=run_id)
+    json_path, md_path = storage.save_analytic(run_id, result, render_analytic_md(result))
+
+    meta = storage.load_run_meta(run_id)
+    meta.analytic_json = storage.relative(json_path)
+    storage.save_run_meta(meta)
+
+    print(f"run_id: {run_id}")
+    print(f"analytic: {json_path}")
+    print("\nКлючевые термины:")
+    for term in result.key_terms:
+        print(f"  - {term}")
+    print("\nКлючевые предложения:")
+    for index, sentence in enumerate(result.key_sentences, start=1):
+        print(f"  {index}. {sentence}")
+    print(f"\nДомашка (уверенность {result.homework_confidence}):")
+    for item in result.homework_candidates or ["не найдена"]:
+        print(f"  - {item}")
+
+    if args.compare:
+        try:
+            digest = storage.load_digest(run_id)
+        except MissingArtifactError:
+            log.warning("Дайджест не найден — сравнение пропущено")
+            return 0
+        comparison = compare_digest(result, digest, transcript.text)
+        print("\nСравнение с GigaChat:")
+        for key, value in sorted(comparison.items()):
+            print(f"  {key}: {value}")
+
+        metrics_path = storage.metrics_path(run_id)
+        existing = read_json(metrics_path) if metrics_path.exists() else {"run_id": run_id}
+        existing.setdefault("counters", {})
+        existing["analytic_compare"] = comparison
+        storage.save_metrics(run_id, existing)
+
     return 0
 
 
@@ -233,6 +294,16 @@ def _cmd_doctor(config: AppConfig) -> int:
         print("web deps:     есть")
     except ImportError:
         print("web deps:     НЕТ (pip install 'lessondigest[web]')")
+
+    try:
+        import networkx  # noqa: F401
+        import pymorphy3  # noqa: F401
+        import razdel  # noqa: F401
+        import sklearn  # noqa: F401
+
+        print("analytic deps: есть")
+    except ImportError:
+        print("analytic deps: НЕТ (pip install 'lessondigest[analytic]')")
 
     if config.paths.root.exists():
         try:
