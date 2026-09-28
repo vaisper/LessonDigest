@@ -3,6 +3,9 @@
 venv/
 __pycache__/
 *.pyc
+*.egg-info/
+build/
+dist/
 .pytest_cache/
 .mypy_cache/
 .idea/
@@ -10,11 +13,13 @@ __pycache__/
 
 # реальные уроки — не в git
 audio/raw/*
+audio/incoming/*
 audio/normalized/*
 transcripts/*
 digests/*
 runs/*
 !audio/raw/.gitkeep
+!audio/incoming/.gitkeep
 !audio/normalized/.gitkeep
 !transcripts/.gitkeep
 !digests/.gitkeep
@@ -25,3 +30,6 @@ runs/*
 models/
 *.bin
 *.pt
+
+# сгенерированные озвучки уроков большие (WAV ~25 МБ) — в git только тексты
+samples/generated/*.wav

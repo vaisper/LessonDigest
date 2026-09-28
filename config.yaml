@@ -1,0 +1,28 @@
+paths:
+  # root is resolved relative to this file; "." means the project folder
+  root: "."
+
+asr:
+  provider: faster_whisper
+  model: small
+  device: cpu
+  compute_type: int8
+  language: ru
+  beam_size: 5
+  vad: true
+
+llm:
+  provider: gigachat
+  model: GigaChat-2-Pro
+  prompt_version: v1
+  temperature: 0.2
+  max_tokens: 2048
+  timeout_sec: 120
+  verify_ssl: true
+  ca_bundle: "certs/russian_trusted_ca_bundle.pem"
+
+chunking:
+  enabled: true
+  soft_char_limit: 24000
+  overlap_chars: 200
+  chars_per_token: 2.5
