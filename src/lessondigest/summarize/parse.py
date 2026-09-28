@@ -6,6 +6,7 @@ from typing import Any
 
 from lessondigest.domain import Digest, HomeworkConfidence
 from lessondigest.errors import LlmError
+from lessondigest.summarize.normalize import normalize_field, normalize_text
 
 FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
 
@@ -43,10 +44,12 @@ def _as_str_list(value: Any) -> list[str]:
     if value is None:
         return []
     if isinstance(value, str):
-        return [value.strip()] if value.strip() else []
+        cleaned = normalize_field(value)
+        return [cleaned] if cleaned else []
     if isinstance(value, list):
-        return [str(item).strip() for item in value if str(item).strip()]
-    return [str(value)]
+        items = [normalize_field(str(item)) for item in value]
+        return [item for item in items if item]
+    return [normalize_field(str(value))]
 
 
 def digest_from_payload(payload: dict[str, Any], *, prompt_version: str, model: str) -> Digest:
@@ -58,7 +61,7 @@ def digest_from_payload(payload: dict[str, Any], *, prompt_version: str, model: 
 
     homework = payload.get("homework")
     if isinstance(homework, str):
-        homework = homework.strip()
+        homework = normalize_text(homework)
         if homework.lower() in {"null", "none", "нет", "не упоминалось", "-"}:
             homework = None
     if not homework:
@@ -66,7 +69,7 @@ def digest_from_payload(payload: dict[str, Any], *, prompt_version: str, model: 
         if confidence is not HomeworkConfidence.ABSENT:
             confidence = HomeworkConfidence.ABSENT
 
-    topic = str(payload.get("topic") or "").strip() or "Без темы"
+    topic = normalize_text(str(payload.get("topic") or "")) or "Без темы"
 
     return Digest(
         topic=topic,

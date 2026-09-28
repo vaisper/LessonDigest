@@ -202,7 +202,7 @@ asr:
 llm:
   provider: gigachat         # или fake
   model: GigaChat-2-Pro
-  prompt_version: v1
+  prompt_version: v1_1
   ca_bundle: "certs/russian_trusted_ca_bundle.pem"   # сертификаты российского УЦ
 
 chunking:
@@ -297,7 +297,7 @@ LessonDigest/
 ├── digests/             <run_id>.md (человеку) и <run_id>.json (машине)
 │   └── _eval/           оценки людей и summary.md
 ├── runs/<run_id>/       run.json (статус, метаданные) и metrics.json (тайминги)
-├── prompts/             v1_digest.txt и будущие версии
+├── prompts/             v1_digest.txt, v1_1_digest.txt
 ├── samples/             синтетические примеры для тестов
 └── src/lessondigest/    код
 ```
@@ -417,8 +417,10 @@ src/lessondigest/
 - [x] Архитектура в markdown
 - [x] Пайплайн: CLI, ingest, ASR/LLM-адаптеры, chunking, summary, validate, deliver, metrics, storage
 - [x] Реальные прогоны faster-whisper + GigaChat (RTF ≈ 0.16 на CPU)
-- [x] Веб-интерфейс (FastAPI): загрузка из браузера, фоновая очередь, просмотр дайджеста
-- [ ] 5–10 прогонов на **реальных** записях урока + оценки (`docs/07_METRICS.md`)
-- [ ] `prompt v1.1`: чистка формул и обозначений
+- [x] Веб-интерфейс (FastAPI): загрузка из браузера, фоновая очередь, прогресс в процентах, просмотр дайджеста
+- [x] Прогоны end-to-end на синтетических уроках (алгебра / физика / история) и через веб
+- [ ] 5–10 прогонов на **реальных** записях урока с телефона (шум, живая речь) — риски R1/R2
+- [ ] Оценки полезности (1–5) и верности домашки → `digests/_eval/summary.md` (`docs/07_METRICS.md`)
+- [x] `prompt v1.1`: единый формат формул (без LaTeX), стандартные обозначения; нормализатор формул в коде
 - [ ] Своя математика (TF-IDF / TextRank) — научная часть
 - [ ] Авторизация веб-интерфейса и HTTPS для доступа не из своей сети
